@@ -1,0 +1,1117 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Nearby Search</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      font-family:
+        system-ui,
+        -apple-system,
+        BlinkMacSystemFont,
+        "Segoe UI",
+        sans-serif;
+      color: #202124;
+    }
+
+    body {
+      background: #f5f5f5;
+    }
+
+    .app {
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-columns: 380px 1fr;
+    }
+
+    /* 左パネル */
+    .sidebar {
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+      background: white;
+      border-right: 1px solid #ddd;
+      z-index: 2;
+    }
+
+    .header {
+      padding: 20px;
+      border-bottom: 1px solid #eee;
+    }
+
+    .header h1 {
+      margin: 0 0 16px;
+      font-size: 22px;
+    }
+
+    .search-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    #address {
+      flex: 1;
+      min-width: 0;
+      height: 42px;
+      padding: 0 12px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      font-size: 14px;
+      outline: none;
+    }
+
+    #address:focus {
+      border-color: #1a73e8;
+      box-shadow: 0 0 0 1px #1a73e8;
+    }
+
+    #search-button {
+      height: 42px;
+      padding: 0 16px;
+      border: 0;
+      border-radius: 8px;
+      background: #1a73e8;
+      color: white;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    #search-button:hover {
+      background: #1765cc;
+    }
+
+    #search-button:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .search-options {
+      display: flex;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    select {
+      flex: 1;
+      height: 38px;
+      padding: 0 10px;
+      border: 1px solid #dadce0;
+      border-radius: 8px;
+      background: white;
+      font-size: 13px;
+    }
+
+    .summary {
+      padding: 14px 20px;
+      border-bottom: 1px solid #eee;
+      background: #fafafa;
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .summary strong {
+      font-weight: 600;
+    }
+
+    .coordinates {
+      color: #5f6368;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+    }
+
+    /* 結果 */
+    #results {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .place {
+      padding: 16px 20px;
+      border-bottom: 1px solid #eee;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .place:hover {
+      background: #f6f9fe;
+    }
+
+    .place-top {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+    }
+
+    .place-number {
+      flex: 0 0 28px;
+      width: 28px;
+      height: 28px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: #1a73e8;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .place-content {
+      min-width: 0;
+    }
+
+    .place-name {
+      margin-bottom: 4px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .place-address {
+      color: #5f6368;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .place-link {
+      display: inline-block;
+      margin-top: 7px;
+      color: #1a73e8;
+      font-size: 12px;
+      text-decoration: none;
+    }
+
+    .place-link:hover {
+      text-decoration: underline;
+    }
+
+    .message {
+      padding: 24px 20px;
+      color: #5f6368;
+      font-size: 14px;
+    }
+
+    .error {
+      color: #b3261e;
+    }
+
+    /* 地図 */
+    #map {
+      width: 100%;
+      height: 100%;
+    }
+
+    /* 番号付きマーカー */
+    .marker {
+      width: 32px;
+      height: 32px;
+      display: grid;
+      place-items: center;
+      border: 3px solid white;
+      border-radius: 50% 50% 50% 0;
+      background: #1a73e8;
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+      box-shadow: 0 2px 8px rgb(0 0 0 / 30%);
+      transform: rotate(-45deg);
+    }
+
+    .marker span {
+      transform: rotate(45deg);
+    }
+
+    .center-marker {
+      width: 18px;
+      height: 18px;
+      border: 4px solid white;
+      border-radius: 50%;
+      background: #d93025;
+      box-shadow: 0 1px 5px rgb(0 0 0 / 40%);
+    }
+
+    @media (max-width: 800px) {
+      .app {
+        grid-template-columns: 1fr;
+        grid-template-rows: 48% 52%;
+      }
+
+      .sidebar {
+        grid-row: 2;
+        border-right: 0;
+        border-top: 1px solid #ddd;
+      }
+
+      #map {
+        grid-row: 1;
+      }
+
+      .header {
+        padding: 12px;
+      }
+
+      .header h1 {
+        display: none;
+      }
+
+      .summary {
+        padding: 8px 12px;
+      }
+
+      .place {
+        padding: 12px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+<div class="app">
+
+  <aside class="sidebar">
+
+    <div class="header">
+      <h1>Nearby Search</h1>
+
+      <div class="search-row">
+        <!--
+          ここで初期住所を指定
+        -->
+        <input
+          id="address"
+          type="text"
+          value="東京駅"
+          placeholder="住所や施設名を入力"
+        >
+
+        <button id="search-button">
+          検索
+        </button>
+      </div>
+
+      <div class="search-options">
+
+        <select id="place-type">
+          <option value="">すべての施設</option>
+          <option value="restaurant">レストラン</option>
+          <option value="cafe">カフェ</option>
+          <option value="convenience_store">コンビニ</option>
+          <option value="supermarket">スーパー</option>
+          <option value="hospital">病院</option>
+          <option value="pharmacy">薬局</option>
+          <option value="gas_station">ガソリンスタンド</option>
+          <option value="parking">駐車場</option>
+        </select>
+
+        <select id="radius">
+          <option value="500">500 m</option>
+          <option value="800">800 m</option>
+          <option value="1200" selected>1.2 km</option>
+          <option value="2000">2 km</option>
+          <option value="3000">3 km</option>
+          <option value="5000">5 km</option>
+        </select>
+
+      </div>
+    </div>
+
+    <div id="summary" class="summary">
+      検索してください
+    </div>
+
+    <div id="results">
+    </div>
+
+  </aside>
+
+  <div id="map"></div>
+
+</div>
+
+
+<script>
+  let map;
+  let infoWindow;
+
+  let resultMarkers = [];
+  let centerMarker = null;
+  let radiusCircle = null;
+
+
+  /*
+   * Google Maps 初期化
+   */
+  async function initMap() {
+
+    const [
+      { Map, InfoWindow },
+      { AdvancedMarkerElement },
+      { Geocoder },
+      { Place, SearchNearbyRankPreference }
+    ] = await Promise.all([
+      google.maps.importLibrary("maps"),
+      google.maps.importLibrary("marker"),
+      google.maps.importLibrary("geocoding"),
+      google.maps.importLibrary("places")
+    ]);
+
+
+    /*
+     * 後から使えるように保持
+     */
+    window.GoogleMapsClasses = {
+      AdvancedMarkerElement,
+      Geocoder,
+      Place,
+      SearchNearbyRankPreference
+    };
+
+
+    map = new Map(
+      document.getElementById("map"),
+      {
+        center: {
+          lat: 35.681236,
+          lng: 139.767125
+        },
+
+        zoom: 14,
+
+        /*
+         * AdvancedMarkerElement に必要。
+         * テストなら DEMO_MAP_ID でOK。
+         */
+        mapId: "DEMO_MAP_ID",
+
+        mapTypeControl: false,
+        streetViewControl: false
+      }
+    );
+
+
+    infoWindow = new InfoWindow();
+
+
+    /*
+     * ボタン
+     */
+    document
+      .getElementById("search-button")
+      .addEventListener("click", search);
+
+
+    /*
+     * Enterキー
+     */
+    document
+      .getElementById("address")
+      .addEventListener("keydown", event => {
+        if (event.key === "Enter") {
+          search();
+        }
+      });
+
+
+    /*
+     * 種類・半径を変えたら再検索
+     */
+    document
+      .getElementById("place-type")
+      .addEventListener("change", search);
+
+    document
+      .getElementById("radius")
+      .addEventListener("change", search);
+
+
+    /*
+     * 初期住所を自動検索
+     */
+    await search();
+  }
+
+
+  /*
+   * メイン処理
+   */
+  async function search() {
+
+    const button =
+      document.getElementById("search-button");
+
+    const resultsElement =
+      document.getElementById("results");
+
+    const summaryElement =
+      document.getElementById("summary");
+
+
+    const address =
+      document.getElementById("address")
+        .value
+        .trim();
+
+    const type =
+      document.getElementById("place-type")
+        .value;
+
+    const radius =
+      Number(
+        document.getElementById("radius")
+          .value
+      );
+
+
+    if (!address) {
+      showError("住所を入力してください。");
+      return;
+    }
+
+
+    button.disabled = true;
+    button.textContent = "検索中...";
+
+    resultsElement.innerHTML =
+      `<div class="message">検索しています...</div>`;
+
+
+    try {
+
+      /*
+       * 1.
+       * 住所
+       * ↓
+       * latitude / longitude
+       */
+      const center =
+        await geocodeAddress(address);
+
+
+      /*
+       * 2.
+       * 検索中心と半径を表示
+       */
+      drawSearchArea(
+        center,
+        radius
+      );
+
+
+      /*
+       * 3.
+       * Nearby Search
+       */
+      const places =
+        await nearbySearch(
+          center,
+          radius,
+          type
+        );
+
+
+      /*
+       * 4.
+       * サマリー
+       */
+      summaryElement.innerHTML = `
+        <strong>${escapeHTML(address)}</strong><br>
+
+        ${formatRadius(radius)}以内・${places.length}件
+
+        <div class="coordinates">
+          lat: ${center.lat.toFixed(6)} /
+          lng: ${center.lng.toFixed(6)}
+        </div>
+      `;
+
+
+      /*
+       * 5.
+       * マーカーと一覧
+       */
+      displayPlaces(
+        places,
+        center
+      );
+
+    }
+
+    catch (error) {
+
+      console.error(error);
+
+      showError(
+        error.message ||
+        "検索中にエラーが発生しました。"
+      );
+    }
+
+    finally {
+
+      button.disabled = false;
+      button.textContent = "検索";
+    }
+  }
+
+
+  /*
+   * 住所 → lat / lng
+   */
+  async function geocodeAddress(address) {
+
+    const {
+      Geocoder
+    } = window.GoogleMapsClasses;
+
+
+    const geocoder =
+      new Geocoder();
+
+
+    const response =
+      await geocoder.geocode({
+        address: address,
+
+        /*
+         * 日本の住所として検索を優先
+         */
+        region: "JP"
+      });
+
+
+    if (
+      !response.results ||
+      response.results.length === 0
+    ) {
+      throw new Error(
+        "指定した住所が見つかりませんでした。"
+      );
+    }
+
+
+    const location =
+      response.results[0]
+        .geometry
+        .location;
+
+
+    return {
+      lat: location.lat(),
+      lng: location.lng()
+    };
+  }
+
+
+  /*
+   * Nearby Search
+   */
+  async function nearbySearch(
+    center,
+    radius,
+    type
+  ) {
+
+    const {
+      Place,
+      SearchNearbyRankPreference
+    } = window.GoogleMapsClasses;
+
+
+    const request = {
+
+      /*
+       * 取得するデータ。
+       * 必要以上のフィールドを増やさない方がよい。
+       */
+      fields: [
+        "displayName",
+        "formattedAddress",
+        "location",
+        "googleMapsURI"
+      ],
+
+
+      locationRestriction: {
+        center: center,
+        radius: radius
+      },
+
+
+      /*
+       * 最大20件
+       */
+      maxResultCount: 20,
+
+
+      /*
+       * 人気順
+       */
+      rankPreference:
+        SearchNearbyRankPreference.POPULARITY,
+
+
+      language: "ja",
+      region: "JP"
+    };
+
+
+    /*
+     * 施設タイプ指定時だけ追加
+     */
+    if (type) {
+      request.includedTypes = [
+        type
+      ];
+    }
+
+
+    const {
+      places
+    } = await Place.searchNearby(
+      request
+    );
+
+
+    return places || [];
+  }
+
+
+  /*
+   * 検索中心・検索半径を地図に表示
+   */
+  function drawSearchArea(
+    center,
+    radius
+  ) {
+
+    const {
+      AdvancedMarkerElement
+    } = window.GoogleMapsClasses;
+
+
+    /*
+     * 前回の中心マーカー削除
+     */
+    if (centerMarker) {
+      centerMarker.map = null;
+    }
+
+
+    /*
+     * 前回の円削除
+     */
+    if (radiusCircle) {
+      radiusCircle.setMap(null);
+    }
+
+
+    const markerElement =
+      document.createElement("div");
+
+    markerElement.className =
+      "center-marker";
+
+
+    centerMarker =
+      new AdvancedMarkerElement({
+        map: map,
+        position: center,
+        title: "検索中心",
+        content: markerElement
+      });
+
+
+    radiusCircle =
+      new google.maps.Circle({
+        map: map,
+
+        center: center,
+
+        radius: radius,
+
+        strokeColor: "#1a73e8",
+        strokeOpacity: 0.7,
+        strokeWeight: 2,
+
+        fillColor: "#1a73e8",
+        fillOpacity: 0.08
+      });
+
+
+    /*
+     * 検索半径全体が見えるようにする
+     */
+    map.fitBounds(
+      radiusCircle.getBounds(),
+      40
+    );
+  }
+
+
+  /*
+   * Placesを表示
+   */
+  function displayPlaces(
+    places,
+    center
+  ) {
+
+    const resultsElement =
+      document.getElementById("results");
+
+
+    clearResultMarkers();
+
+
+    if (places.length === 0) {
+
+      resultsElement.innerHTML = `
+        <div class="message">
+          条件に一致する施設が見つかりませんでした。
+        </div>
+      `;
+
+      return;
+    }
+
+
+    resultsElement.innerHTML = "";
+
+
+    places.forEach(
+      (place, index) => {
+
+        if (!place.location) {
+          return;
+        }
+
+
+        const position = {
+          lat: place.location.lat(),
+          lng: place.location.lng()
+        };
+
+
+        /*
+         * マーカー
+         */
+        const marker =
+          createPlaceMarker(
+            place,
+            position,
+            index + 1
+          );
+
+
+        resultMarkers.push(marker);
+
+
+        /*
+         * 一覧
+         */
+        const item =
+          document.createElement("div");
+
+        item.className =
+          "place";
+
+
+        item.innerHTML = `
+          <div class="place-top">
+
+            <div class="place-number">
+              ${index + 1}
+            </div>
+
+            <div class="place-content">
+
+              <div class="place-name">
+                ${escapeHTML(
+                  place.displayName ||
+                  "名称不明"
+                )}
+              </div>
+
+              <div class="place-address">
+                ${escapeHTML(
+                  place.formattedAddress ||
+                  "住所情報なし"
+                )}
+              </div>
+
+              ${
+                place.googleMapsURI
+                  ? `
+                    <a
+                      class="place-link"
+                      href="${escapeHTML(place.googleMapsURI)}"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      onclick="event.stopPropagation()"
+                    >
+                      Google Mapsで開く
+                    </a>
+                  `
+                  : ""
+              }
+
+            </div>
+
+          </div>
+        `;
+
+
+        /*
+         * 一覧クリック
+         */
+        item.addEventListener(
+          "click",
+          () => {
+
+            map.panTo(position);
+
+            map.setZoom(
+              Math.max(
+                map.getZoom() || 15,
+                16
+              )
+            );
+
+            openInfoWindow(
+              place,
+              marker
+            );
+          }
+        );
+
+
+        resultsElement.appendChild(
+          item
+        );
+      }
+    );
+  }
+
+
+  /*
+   * 番号付きマーカー生成
+   */
+  function createPlaceMarker(
+    place,
+    position,
+    number
+  ) {
+
+    const {
+      AdvancedMarkerElement
+    } = window.GoogleMapsClasses;
+
+
+    const element =
+      document.createElement("div");
+
+
+    element.className =
+      "marker";
+
+
+    const numberElement =
+      document.createElement("span");
+
+    numberElement.textContent =
+      number;
+
+
+    element.appendChild(
+      numberElement
+    );
+
+
+    const marker =
+      new AdvancedMarkerElement({
+        map: map,
+        position: position,
+
+        title:
+          place.displayName ||
+          "施設",
+
+        content: element
+      });
+
+
+    marker.addListener(
+      "click",
+      () => {
+        openInfoWindow(
+          place,
+          marker
+        );
+      }
+    );
+
+
+    return marker;
+  }
+
+
+  /*
+   * 吹き出し
+   */
+  function openInfoWindow(
+    place,
+    marker
+  ) {
+
+    const name =
+      escapeHTML(
+        place.displayName ||
+        "名称不明"
+      );
+
+    const address =
+      escapeHTML(
+        place.formattedAddress ||
+        ""
+      );
+
+
+    const link =
+      place.googleMapsURI
+        ? `
+          <div style="margin-top:8px">
+            <a
+              href="${escapeHTML(place.googleMapsURI)}"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Google Mapsで見る
+            </a>
+          </div>
+        `
+        : "";
+
+
+    infoWindow.setContent(`
+      <div
+        style="
+          max-width:260px;
+          padding:4px;
+          line-height:1.5;
+        "
+      >
+        <strong>
+          ${name}
+        </strong>
+
+        <div
+          style="
+            margin-top:4px;
+            color:#5f6368;
+          "
+        >
+          ${address}
+        </div>
+
+        ${link}
+
+      </div>
+    `);
+
+
+    infoWindow.open({
+      map: map,
+      anchor: marker
+    });
+  }
+
+
+  /*
+   * 結果マーカーを削除
+   */
+  function clearResultMarkers() {
+
+    for (
+      const marker
+      of resultMarkers
+    ) {
+      marker.map = null;
+    }
+
+    resultMarkers = [];
+  }
+
+
+  /*
+   * エラー表示
+   */
+  function showError(message) {
+
+    document
+      .getElementById("results")
+      .innerHTML = `
+        <div class="message error">
+          ${escapeHTML(message)}
+        </div>
+      `;
+  }
+
+
+  /*
+   * 半径表示
+   */
+  function formatRadius(radius) {
+
+    if (radius >= 1000) {
+
+      return (
+        radius / 1000
+      ).toFixed(
+        radius % 1000 === 0
+          ? 0
+          : 1
+      ) + " km";
+    }
+
+    return radius + " m";
+  }
+
+
+  /*
+   * HTMLエスケープ
+   */
+  function escapeHTML(value) {
+
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+</script>
+
+
+<!--
+  YOUR_API_KEY を自分のAPIキーに変更
+-->
+<script
+  async
+  src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDpxvrDWlOYTThlPACSGP4Y70ilWbYNFH&&loading=async&callback=initMap&v=weekly&language=ja&region=JP">
+</script>
+
+</body>
+</html>
